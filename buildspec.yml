@@ -1,0 +1,73 @@
+version: 0.2
+env:
+  variables:
+    AWS_Region: "ap-south-1"
+    AWS_AccountId: "051087528164"
+    Sonar_Project: "SRE-Demo"
+  secrets-manager:
+    Sonar_AccessToken: SRE_Secrets:Sonar_AccessToken
+    Sonar_Host: SRE_Secrets:Sonar_Host  
+phases:
+    install:
+        commands:
+            # installation commands
+    pre_build:
+        commands:
+            #- echo Restore started on `date`
+            #- dotnet restore ClassroomApp.csproj
+            - echo Logging in to Amazon ECR...
+            - aws --version
+            - aws ecr get-login-password --region $AWS_Region | docker login --username AWS --password-stdin $AWS_AccountId.dkr.ecr.$AWS_Region.amazonaws.com
+            - REPOSITORY_URI=$AWS_AccountId.dkr.ecr.$AWS_Region.amazonaws.com/ecr_sample_sre
+            - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+            - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
+            - dotnet tool install --global dotnet-sonarscanner
+            - dotnet tool install --global dotnet-coverage
+    build:
+        commands:
+            - echo Build started on `date`
+            - dotnet restore
+            # Start - Sonar Quality Scanning
+            # - dotnet sonarscanner begin /k:"SRE-Demo" /d:sonar.host.url=$Sonar_Host
+            #         /d:sonar.cs.xunit.reportsPaths="artifacts/xunit/*.xml"
+            #         /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml 
+            #         /d:sonar.dotnet.excludeTestProjects=true
+            #         /d:sonar.login=$Sonar_AccessToken
+            - dotnet build
+            - dotnet test
+            # - dotnet-coverage collect 'dotnet test' -f xml  -o 'coverage.xml'
+            # - dotnet sonarscanner end /d:sonar.login=$Sonar_AccessToken
+            # End - Sonar Quality Scanning
+
+            # Begin - Verify the Sonar Quality Check Status
+            # - sleep 5 #let the sonar scan complete
+            # - curl -u $Sonar_AccessToken:'' $Sonar_Host/api/qualitygates/project_status?projectKey=$Sonar_Project > result.json
+            # - cat result.json            
+            # - |
+            #     if [ $(jq -r '.projectStatus.status' result.json) = OK ] ; then
+            #         echo "in quality_status OK condition"  
+            #     elif [ $(jq -r '.projectStatus.status' result.json) = ERROR ]; then
+            #         echo "in quality_status ERROR or WARN condition"
+            #         exit 1;                    
+            #     fi
+            # End - Verify the Sonar Quality Check Status
+
+            - dotnet publish --no-restore --output build_output            
+            - echo Building the Docker image...
+            - docker build -f src/Dockerfile -t $REPOSITORY_URI:latest .
+            - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG 
+    post_build:
+        commands:
+            - echo Build completed on `date`
+            - echo Pushing the Docker image...
+            - docker push $REPOSITORY_URI:latest
+            - docker push $REPOSITORY_URI:$IMAGE_TAG
+            # - echo Writing image definitions file...
+            # - printf '[{"name":"ClassroomApp","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+            # - cat imagedefinitions.json 
+artifacts:
+  files:    
+    - ./build_output/**/*
+    #- imagedefinitions.json
+    #- scripts/**/*
+    #- appspec.yml
