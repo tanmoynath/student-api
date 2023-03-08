@@ -1,7 +1,8 @@
 #pull base image
 
 #FROM anapsix/alpine-java
-FROM openjdk:17-jdk-slim-buster
+#FROM openjdk:17-jdk-slim-buster
+FROM openjdk:17-alpine
 
 #expose port 8080
 EXPOSE 8080
