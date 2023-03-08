@@ -3,10 +3,10 @@ env:
   variables:
     AWS_Region: "ap-south-1"
     AWS_AccountId: "051087528164"
-    Sonar_Project: "SRE-Demo"
-  secrets-manager:
-    Sonar_AccessToken: SRE_Secrets:Sonar_AccessToken
-    Sonar_Host: SRE_Secrets:Sonar_Host  
+    #Sonar_Project: "SRE-Demo"
+  #secrets-manager:
+    #Sonar_AccessToken: SRE_Secrets:Sonar_AccessToken
+    #Sonar_Host: SRE_Secrets:Sonar_Host  
 phases:
     install:
         commands:
