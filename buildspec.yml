@@ -11,6 +11,13 @@ phases:
     install:
         commands:
             # installation commands
+            - echo installing Java...
+            - apt-get update -y
+            - apt-get install -y openjdk-17-jdk
+            - apt-get install -y openjdk-17-jre
+            - echo installing maven...
+            - apt-get update -y
+            - apt-get install -y maven
     pre_build:
         commands:
             #- echo Restore started on `date`
@@ -18,23 +25,23 @@ phases:
             - echo Logging in to Amazon ECR...
             - aws --version
             - aws ecr get-login-password --region $AWS_Region | docker login --username AWS --password-stdin $AWS_AccountId.dkr.ecr.$AWS_Region.amazonaws.com
-            - REPOSITORY_URI=$AWS_AccountId.dkr.ecr.$AWS_Region.amazonaws.com/ecr_sample_sre
+            - REPOSITORY_URI=$AWS_AccountId.dkr.ecr.$AWS_Region.amazonaws.com/sre-java-app
             - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
             - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
-            - dotnet tool install --global dotnet-sonarscanner
-            - dotnet tool install --global dotnet-coverage
+            #- dotnet tool install --global dotnet-sonarscanner
+            #- dotnet tool install --global dotnet-coverage
     build:
         commands:
             - echo Build started on `date`
-            - dotnet restore
+            #- dotnet restore
             # Start - Sonar Quality Scanning
             # - dotnet sonarscanner begin /k:"SRE-Demo" /d:sonar.host.url=$Sonar_Host
             #         /d:sonar.cs.xunit.reportsPaths="artifacts/xunit/*.xml"
             #         /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml 
             #         /d:sonar.dotnet.excludeTestProjects=true
             #         /d:sonar.login=$Sonar_AccessToken
-            - dotnet build
-            - dotnet test
+            #- dotnet build
+            #- dotnet test
             # - dotnet-coverage collect 'dotnet test' -f xml  -o 'coverage.xml'
             # - dotnet sonarscanner end /d:sonar.login=$Sonar_AccessToken
             # End - Sonar Quality Scanning
@@ -52,9 +59,11 @@ phases:
             #     fi
             # End - Verify the Sonar Quality Check Status
 
-            - dotnet publish --no-restore --output build_output            
+            #- dotnet publish --no-restore --output build_output            
+            - echo Building the Jar file...
+            - mvn install
             - echo Building the Docker image...
-            - docker build -f src/Dockerfile -t $REPOSITORY_URI:latest .
+            - docker build -f ./Dockerfile -t $REPOSITORY_URI:latest .
             - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG 
     post_build:
         commands:
@@ -67,7 +76,8 @@ phases:
             # - cat imagedefinitions.json 
 artifacts:
   files:    
-    - ./build_output/**/*
+    - target/*.jar
+    #- ./build_output/**/*
     #- imagedefinitions.json
     #- scripts/**/*
     #- appspec.yml
